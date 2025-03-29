@@ -30,13 +30,9 @@ type Bot struct {
 	retryCount int
 }
 
-type CommandRequest struct {
-	Command   string
-	Args      []string
-	UserJID   types.JID
-	ChatJID   types.JID
-	PushName  string
-	Timestamp time.Time
+type BotEvent struct {
+	Type    string                 `json:"type"`
+	Content map[string]interface{} `json:"content"`
 }
 
 func (b *Bot) initClient(device *store.Device) {
@@ -62,26 +58,22 @@ func (b *Bot) eventHandler(evt interface{}) {
 	case *events.Disconnected:
 		b.onDisconnected()
 	case *events.HistorySync:
-		b.Log.Infof("Received history sync with %d conversations", len(v.Data.GetConversations()))
+		b.Log.Infof("History sync: %d conversations", len(v.Data.GetConversations()))
 	}
-}
-
-type BotEvent struct {
-	Type    string                 `json:"type"`
-	Content map[string]interface{} `json:"content"`
 }
 
 func (b *Bot) sendEvent(event BotEvent) {
 	data, err := json.Marshal(event)
 	if err != nil {
-		b.Log.Errorf("Error marshaling event: %v", err)
+		b.Log.Errorf("Marshal error: %v", err)
 		return
 	}
+
+	output := os.Stderr
 	if event.Type == "message" {
-		fmt.Fprintln(os.Stdout, string(data))
-	} else {
-		fmt.Fprintln(os.Stderr, string(data))
+		output = os.Stdout
 	}
+	fmt.Fprintln(output, string(data))
 }
 
 func (b *Bot) startSTDINListener() {
@@ -96,27 +88,35 @@ func (b *Bot) startSTDINListener() {
 		}
 
 		buffer += text
+		if !strings.Contains(buffer, "MESSAGE_END") {
+			continue
+		}
 
-		if strings.Contains(buffer, "MESSAGE_END") {
-			parts := strings.SplitN(buffer, "MESSAGE_END", 2)
-			msg := strings.TrimSpace(parts[0])
+		parts := strings.SplitN(buffer, "MESSAGE_END", 2)
+		msg := strings.TrimSpace(parts[0])
+		buffer = parts[1]
 
-			if strings.HasPrefix(msg, "SEND:") {
-				content := strings.SplitN(msg[5:], "|", 2)
-				if len(content) == 2 {
-					message := strings.ReplaceAll(content[1], "{{NL}}", "\n")
-					jid, err := types.ParseJID(content[0])
-					if err == nil {
-						_, err = b.Client.SendMessage(context.Background(), jid, &waProto.Message{
-							Conversation: proto.String(message),
-						})
-						if err != nil {
-							b.Log.Errorf("Send failed: %v", err)
-						}
-					}
-				}
-			}
-			buffer = parts[1]
+		if !strings.HasPrefix(msg, "SEND:") {
+			continue
+		}
+
+		content := strings.SplitN(msg[5:], "|", 2)
+		if len(content) != 2 {
+			continue
+		}
+
+		message := strings.ReplaceAll(content[1], "{{NL}}", "\n")
+		jid, err := types.ParseJID(content[0])
+		if err != nil {
+			b.Log.Errorf("JID parse error: %v", err)
+			continue
+		}
+
+		_, err = b.Client.SendMessage(context.Background(), jid, &waProto.Message{
+			Conversation: proto.String(message),
+		})
+		if err != nil {
+			b.Log.Errorf("Send error: %v", err)
 		}
 	}
 }
@@ -147,66 +147,61 @@ func (b *Bot) handleMessage(msg *events.Message) {
 
 func (b *Bot) onConnected(evt *events.Connected) {
 	b.retryCount = 0
-	b.Log.Infof("Successfully connected.")
+	b.Log.Infof("Connected successfully")
 
 	if b.Client.Store.PushName == "" {
-		b.Client.Store.PushName = "Awara"
 		if name := os.Getenv("BOT_NAME"); name != "" {
 			b.Client.Store.PushName = name
+		} else {
+			b.Client.Store.PushName = "Awara"
 		}
 	}
 
 	go func() {
 		time.Sleep(3 * time.Second)
-		err := b.Client.SendPresence(types.PresenceAvailable)
-		if err != nil {
-			b.Log.Errorf("Failed to send presence: %v", err)
+		if err := b.Client.SendPresence(types.PresenceAvailable); err != nil {
+			b.Log.Errorf("Presence error: %v", err)
 		} else {
-			b.Log.Infof("Presence set successfully")
+			b.Log.Infof("Presence set")
 		}
 	}()
 }
 
 func (b *Bot) onDisconnected() {
-	b.Log.Warnf("Disconnected, attempting reconnect...")
+	b.Log.Warnf("Disconnected, reconnecting...")
 	time.Sleep(5 * time.Second)
 
-	if b.retryCount < 5 {
-		b.retryCount++
-		err := b.Client.Connect()
-		if err != nil {
-			b.Log.Errorf("Reconnect failed: %v", err)
-		}
-	} else {
-		b.Log.Errorf("Max reconnect attempts reached")
+	if b.retryCount >= 5 {
+		b.Log.Errorf("Max reconnect attempts")
+		return
+	}
+
+	b.retryCount++
+	if err := b.Client.Connect(); err != nil {
+		b.Log.Errorf("Reconnect error: %v", err)
 	}
 }
 
 func (b *Bot) connectWithQR() error {
 	qrChan, _ := b.Client.GetQRChannel(context.Background())
-	err := b.Client.Connect()
-	if err != nil {
-		return fmt.Errorf("connection failed: %w", err)
+	if err := b.Client.Connect(); err != nil {
+		return fmt.Errorf("connect failed: %w", err)
 	}
 
 	for evt := range qrChan {
 		switch evt.Event {
 		case "code":
-			data, _ := json.Marshal(BotEvent{
+			b.sendEvent(BotEvent{
 				Type: "qr",
 				Content: map[string]interface{}{
 					"code":    evt.Code,
 					"message": "Scan QR code with your phone",
 				},
 			})
-			os.Stdout.Write(data)
-			os.Stdout.Write([]byte{'\n'}) // Newline penting
-			os.Stdout.Sync()              // Pastikan terkirim
-
 		case "success":
 			return nil
 		case "timeout":
-			return fmt.Errorf("QR code expired")
+			return fmt.Errorf("QR expired")
 		}
 	}
 	return nil
@@ -221,7 +216,7 @@ func (b *Bot) Run() {
 	}
 
 	if err != nil {
-		b.Log.Errorf("Initial connection failed: %v", err)
+		b.Log.Errorf("Connection failed: %v", err)
 		return
 	}
 
@@ -237,12 +232,12 @@ func main() {
 	waLog.Stdout("DATABASE", "INFO", true)
 
 	if err := godotenv.Load(); err != nil {
-		log.Printf("Warning loading .env: %v", err)
+		log.Printf("Env load warning: %v", err)
 	}
 
 	container, err := sqlstore.New("sqlite3", "file:bot.db?_foreign_keys=on&_journal_mode=WAL&_timeout=5000", nil)
 	if err != nil {
-		log.Fatalf("Database error: %v", err)
+		log.Fatalf("DB error: %v", err)
 	}
 
 	device, err := container.GetFirstDevice()
@@ -250,11 +245,9 @@ func main() {
 		log.Fatalf("Device error: %v", err)
 	}
 
-	bot := &Bot{
-		Log: waLog.Stdout("BOT", "INFO", true),
-	}
+	bot := &Bot{Log: waLog.Stdout("BOT", "INFO", true)}
 	bot.initClient(device)
 
-	log.Println("Starting WhatsApp bot...")
+	log.Println("Starting bot...")
 	bot.Run()
 }
