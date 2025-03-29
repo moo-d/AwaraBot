@@ -5,55 +5,30 @@ import os from 'os'
 import * as qrcode from 'qrcode-terminal'
 import { Bot, Command, CommandContext, CommandResponse } from './types'
 import { extractCommand } from './utils/prefix'
+import { commandCache, getCommand } from './commands'
+import { _aliasRegistry, _commandRegistry } from './utils/loader'
 
 type SupportedPlatform = 'win32' | 'linux' | 'darwin'
 
 class WhatsAppBotLauncher {
   private static readonly BINARY_DIR = path.join(__dirname, '../bin')
   private static readonly BUILD_DIR = path.join(__dirname, '../connection')
-  private static commands = new Map<string, Command>()
 
   public static async launch() {
     try {
-      await this.loadCommands()
+      const { initializeLoader } = await import('./utils/loader')
+      await initializeLoader()
+      
       this.ensureBinaryExists()
       const botProcess = this.spawnBot(this.getPlatformBinaryPath())
       this.setupEventHandlers(botProcess)
+      
+      const { _commandRegistry } = await import('./utils/loader')
+      console.log('Loaded commands:', [..._commandRegistry.keys()])
     } catch (error) {
-      console.error('❌ Fatal error:', error instanceof Error ? error.message : error)
+      console.error('❌ Fatal error:', error)
       process.exit(1)
     }
-  }
-
-  private static async loadCommands() {
-    const commandsDir = path.join(__dirname, 'commands')
-    try {
-      const commandFiles = fs.readdirSync(commandsDir)
-        .filter(file => (file.endsWith('.js') || (process.env.NODE_ENV === 'development' && file.endsWith('.ts'))))
-        .filter(file => !file.startsWith('_'))
-
-      await Promise.all(commandFiles.map(async (file) => {
-        try {
-          const command = await this.loadCommandFile(path.join(commandsDir, file))
-          if (command) this.registerCommand(command)
-        } catch (err) {
-          console.error(`Failed to load ${file}:`, err)
-        }
-      }))
-    } catch (err) {
-      console.error('Command loading failed:', err)
-    }
-  }
-
-  private static async loadCommandFile(filePath: string): Promise<Command | null> {
-    const imported = await import(filePath)
-    const command = imported?.default || imported
-    return command?.name ? command : null
-  }
-
-  private static registerCommand(command: Command) {
-    this.commands.set(command.name.toLowerCase(), command)
-    command.alias?.forEach(alias => this.commands.set(alias.toLowerCase(), command))
   }
 
   private static getPlatformBinaryPath(): string {
@@ -123,6 +98,7 @@ class WhatsAppBotLauncher {
   }
 
   private static setupEventHandlers(botProcess: ChildProcess) {
+    let messageBuffer = ''
     const bot: Bot = {
       sendMessage: async (jid, content) => {
         const message = typeof content === 'string' ? content : ""
@@ -156,7 +132,22 @@ class WhatsAppBotLauncher {
       }
     }
 
-    botProcess.stdout?.on('data', handleOutput)
+    botProcess.stdout?.on('data', (data) => {
+      messageBuffer += data.toString()
+      const messages = messageBuffer.split('\n')
+      messageBuffer = messages.pop() || ''
+      
+      messages.forEach(msg => {
+        if (msg.trim()) {
+          try {
+            handleOutput(Buffer.from(msg))
+          } catch (err) {
+            console.error('IPC message processing error:', err)
+          }
+        }
+      })
+    })
+
     botProcess.stderr?.on('data', data => console.error(`[BOT ERROR] ${data.toString().trim()}`))
     botProcess.on('error', err => {
       console.error('🔥 Process error:', err)
@@ -171,40 +162,42 @@ class WhatsAppBotLauncher {
       botProcess.kill()
       process.exit()
     })
+    process.on('exit', () => {
+      commandCache.clear()
+      _commandRegistry.clear()
+      _aliasRegistry.clear()
+    })
   }
 
   private static async handleMessage(bot: Bot, content: any) {
-    const messageText = content.text?.trim() || ''
-    const { command: cmdName, args } = extractCommand(messageText)
+    const { command: cmdName, args } = extractCommand(content.text)
     if (!cmdName) return
-
-    const cmd = this.findCommand(cmdName)
-    if (!cmd) return
-
+  
     try {
+      const cmd = await getCommand(cmdName)
+      if (!cmd) return
+      
       const context: CommandContext = {
         chat: content.chat,
-        from: `${content.from.split(':')[0]}`,
+        from: content.from,
         pushName: content.pushName,
         isGroup: content.isGroup
       }
 
-      const response = await cmd.handler(bot, args, context)
-      const senderJid = context.from.replace(/@s\.whatsapp\.net$/, '') + '@s.whatsapp.net'
-      console.log(`[MSG] From: ${senderJid} - Content: ${messageText}`)
-      if (response) await bot.sendMessage(content.chat, response.text)
+      const startTime = Date.now()
+      try {
+        await cmd.handler(bot, args, context)
+        const duration = Date.now() - startTime
+        if (duration > 1000) {
+          console.log(`[PERF] Slow command ${cmdName}: ${duration}ms`)
+        }
+      } catch (err) {
+        console.error(`[ERROR] Command ${cmdName} failed after ${Date.now() - startTime}ms`, err)
+        throw err
+      }
     } catch (err) {
-      console.error('Command execution error:', err)
-      await bot.sendMessage(content.chat, '⚠️ Error processing command')
+      await bot.sendMessage(content.chat, '⚠️ An error occurred while processing your command')
     }
-  }
-
-  private static findCommand(cmdName: string): Command | undefined {
-    return this.commands.get(cmdName.toLowerCase()) || 
-           Array.from(this.commands.values()).find(c => 
-             c.alias?.includes(cmdName.toLowerCase())) ||
-           (this.commands.has('default') ? 
-             this.commands.get('default') : undefined)
   }
 }
 
