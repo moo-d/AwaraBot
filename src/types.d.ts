@@ -14,19 +14,28 @@ export interface CommandResponse {
   mentions?: string[]
 }
 
+export interface CommandMeta {
+  alias?: string[]
+  filePath: string
+  loadedAt?: Date
+  lastModified: number
+  size: number
+  category: string
+}
+
 export interface Command {
   name: string
   alias?: string[]
   category: string
   description?: string
-  __filePath?: string
   handler: (
     bot: Bot,
     args: string[],
     context: CommandContext
   ) => Promise<CommandResponse | void> | CommandResponse | void
-  meta?: {
-    filePath?: string
-    loadedAt?: Date
-  }
+  meta?: Partial<CommandMeta>
+}
+
+export interface CommandWithMeta extends Command {
+  meta: CommandMeta
 }
