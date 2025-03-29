@@ -1,4 +1,4 @@
-# WhatsApp Bot Hybrid (Go + TypeScript)
+# Awara Bot Hybrid (Go + TypeScript)
  
 *A hybrid WhatsApp bot with Go backend and TypeScript command system*
 
