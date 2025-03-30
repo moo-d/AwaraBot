@@ -34,23 +34,23 @@ export default {
     const message = `
 ╭━━━〔 📊 BOT STATISTICS 〕━━━╮
 │
-│  🔹 Bot Status:
+│  ┌─     *「 Status 」*
 │  ├ 🚀 Response Speed: ${stats.responseSpeed} ms
 │  ├ ⏳ Uptime Bot: ${stats.uptimeBot}
 │  ├ ⏳ Uptime Server: ${stats.uptimeServer}
 │  ├ 📂 Memory Usage: ${stats.memoryUsage} MB
-│  
-│  🖥 Server Info:
+│  └────
+│  ┌─ *「 🖥 Server Info:」*
 │  ├ 🔧 CPU Model: ${stats.cpuModel}
 │  ├ ⚡ CPU Speed: ${stats.cpuSpeed} MHz
 │  ├ 📊 CPU Usage: ${stats.cpuUsage}%
-│  
-│  📜 Additional Info:
+│  └────
+│  ┌─ *「 📜 Additional Info:」*
 │  ├ 🌐 Platform: ${stats.platform}
 │  ├ 🏷 Arch: ${stats.arch}
 │  ├ 💾 RAM Total: ${stats.ramTotal} GB
 │  ├ 📉 RAM Free: ${stats.ramFree} GB
-│
+│  └────
 ╰━━━━━━━━━━━━━━━━━━━╯`.trim()
 
     await bot.sendMessage(context.chat, message)
