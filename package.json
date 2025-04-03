@@ -36,6 +36,7 @@
   "description": "",
   "dependencies": {
     "@types/qrcode-terminal": "^0.12.2",
+    "fs-extra": "^11.3.0",
     "qrcode-terminal": "^0.12.0"
   }
 }
