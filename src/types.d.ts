@@ -1,5 +1,22 @@
 export interface Bot {
   sendMessage: (jid: string, message: string) => Promise<void>
+  sendImage: (
+    jid: string, 
+    image: Buffer | string, 
+    caption?: string, 
+    isUrl?: boolean
+  ) => Promise<void>
+  sendVideo: (
+    jid: string, 
+    video: Buffer | string, 
+    caption?: string, 
+    isUrl?: boolean
+  ) => Promise<void>
+  sendAudio: (
+    jid: string, 
+    audio: Buffer | string, 
+    isUrl?: boolean
+  ) => Promise<void>
 }
 
 export interface CommandContext {
