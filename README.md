@@ -39,12 +39,12 @@
 1. Clone the repository
    ```bash
    git clone https://github.com/moo-d/AwaraBot
-   cd whatsapp-bot
+   cd AwaraBot
    ```
 
 2. Install dependencies
    ```bash
-   go mod download
+   go run tidy
    npm install
    ```
 
@@ -56,8 +56,7 @@
 
 4. Build and run
    ```bash
-   chmod +x build.sh
-   ./build.sh && npm run prod
+   npm run prod
    ```
 ---
 # Official Group
