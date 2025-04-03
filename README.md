@@ -27,6 +27,7 @@
 | Command System  | TypeScript               |
 | IPC             | STDIN/STDOUT             |
 | Database        | SQLite (embedded)        |
+|Media Processing	| FFmpeg                   |
 ---
 ## 🚀 Installation
 
