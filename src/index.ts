@@ -7,12 +7,13 @@ import { Bot, Command, CommandContext, CommandResponse } from './types'
 import { extractCommand } from './utils/prefix'
 import { commandCache, getCommand } from './commands'
 import { _aliasRegistry, _commandRegistry } from './utils/loader'
+import { createBotClient } from './core/botClient'
 
 type SupportedPlatform = 'win32' | 'linux' | 'darwin'
 
 class WhatsAppBotLauncher {
   private static readonly BINARY_DIR = path.join(__dirname, '../bin')
-  private static readonly BUILD_DIR = path.join(__dirname, '../connection')
+  private static readonly BUILD_DIR = path.join(__dirname, '..')
 
   public static async launch() {
     try {
@@ -36,13 +37,13 @@ class WhatsAppBotLauncher {
     const arch = os.arch()
     
     const binaries = {
-      win32: 'whatsapp-bot.exe',
+      win32: `whatsapp-bot.exe`,
       linux: `whatsapp-bot-linux-${arch === 'x64' ? 'x64' : 'arm64'}`,
       darwin: `whatsapp-bot-macos-${arch === 'arm64' ? 'arm64' : 'x64'}`
     }
 
     const binaryPath = path.join(this.BINARY_DIR, binaries[platform])
-    if (!fs.existsSync(binaryPath)) throw new Error(`Binary not found at ${binaryPath}`)
+    console.log("DEBUG BIN", binaryPath)
     return binaryPath
   }
 
@@ -68,16 +69,17 @@ class WhatsAppBotLauncher {
     const outputFile = path.join(this.BINARY_DIR, `whatsapp-bot-${platform}-${arch === 'x64' ? 'x64' : 'arm64'}`)
 
     const buildCommands = {
-      win32: `GOOS=windows GOARCH=amd64 go build -o "${outputFile}.exe" main.go`,
+      win32: `set GOOS=windows&& set GOARCH=amd64&& go build -o ${path.join(this.BINARY_DIR, "whatsapp-bot.exe")} main.go`,
       linux: `GOOS=linux GOARCH=${arch === 'x64' ? 'amd64' : 'arm64'} go build -o "${outputFile}-linux-${arch === 'x64' ? 'x64' : 'arm64'}" main.go`,
       darwin: `GOOS=darwin GOARCH=${arch === 'arm64' ? 'arm64' : 'amd64'} go build -o "${outputFile}-macos-${arch === 'arm64' ? 'arm64' : 'x64'}" main.go`
     }
 
+    console.log(this.BUILD_DIR)
     try {
       execSync(buildCommands[platform], {
         cwd: this.BUILD_DIR,
         stdio: 'inherit',
-        env: { ...process.env, CGO_ENABLED: '0' }
+        env: { ...process.env }
       })
     } catch (error) {
       console.error('❌ Build failed:', error)
@@ -86,6 +88,10 @@ class WhatsAppBotLauncher {
   }
 
   private static spawnBot(binaryPath: string): ChildProcess {
+    if (!fs.existsSync(binaryPath)) {
+      throw new Error(`Binary not found at ${binaryPath}`);
+    }
+    
     const botProcess = spawn(binaryPath, [], {
       cwd: path.dirname(binaryPath),
       stdio: ['pipe', 'pipe', 'inherit'] as StdioOptions,
@@ -99,16 +105,7 @@ class WhatsAppBotLauncher {
 
   private static setupEventHandlers(botProcess: ChildProcess) {
     let messageBuffer = ''
-    const bot: Bot = {
-      sendMessage: async (jid, content) => {
-        const message = typeof content === 'string' ? content : ""
-        const command = `SEND:${jid}|${message.replace(/\n/g, '{{NL}}')}MESSAGE_END\n`
-        return new Promise(resolve => botProcess.stdin?.write(command, err => {
-          if (err) console.error('Write error:', err)
-          resolve()
-        }))
-      }
-    }
+    const bot: Bot = createBotClient(botProcess)
 
     const handleOutput = (data: Buffer) => {
       const output = data.toString().trim()
@@ -186,6 +183,7 @@ class WhatsAppBotLauncher {
 
       const startTime = Date.now()
       try {
+        console.log(`[MSG] From: ${context.from} - Content: ${content.text}`)
         await cmd.handler(bot, args, context)
         const duration = Date.now() - startTime
         if (duration > 1000) {
