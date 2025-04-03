@@ -82,11 +82,7 @@ func (b *Bot) sendEvent(event BotEvent) {
 		return
 	}
 
-	output := os.Stderr
-	if event.Type == "message" {
-		output = os.Stdout
-	}
-	fmt.Fprintln(output, string(data))
+	fmt.Fprintln(os.Stdout, string(data))
 }
 
 func getAudioDuration(path string) (float64, error) {
