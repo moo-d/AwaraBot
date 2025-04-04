@@ -31,7 +31,7 @@ export default {
     }
 
     menuMessage += `╰━━━━━━━━━━━━━━━━━━━╯\n`
-    menuMessage += `_Type /help <command> for more info_`
+    menuMessage += `> _Type /help <command> for more info_`
 
     await bot.sendMessage(context.chat, menuMessage)
   }
