@@ -22,16 +22,16 @@ export default {
       commandsByCategory[meta.category].push(commandEntry)
     }
 
-    let menuMessage = '╭━━━〔 🗂️ BOT MENU 〕━━━╮\n\n'
+    let menuMessage = '╭━━━〔 *вoт мenυ *〕━━━╮\n\n'
     
     for (const [category, commands] of Object.entries(commandsByCategory)) {
-      menuMessage += `📁 *${category.toUpperCase()}*\n`
+      menuMessage += `❏ *${category.toUpperCase()}࿐",*\n`
       menuMessage += commands.join('\n')
       menuMessage += '\n\n'
     }
 
     menuMessage += `╰━━━━━━━━━━━━━━━━━━━╯\n`
-    menuMessage += `Type /help <command> for more info`
+    menuMessage += `_Type /help <command> for more info_`
 
     await bot.sendMessage(context.chat, menuMessage)
   }
