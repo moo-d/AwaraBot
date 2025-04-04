@@ -22,7 +22,7 @@ export default {
       commandsByCategory[meta.category].push(commandEntry)
     }
 
-    let menuMessage = '╭━━━〔 *вoт мenυ *〕━━━╮\n\n'
+    let menuMessage = '╭━━━〔 *вoт мenυ* 〕━━━╮\n\n'
     
     for (const [category, commands] of Object.entries(commandsByCategory)) {
       menuMessage += `❏ *${category.toUpperCase()}࿐",*\n`
