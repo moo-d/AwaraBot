@@ -9,7 +9,7 @@ export function extractCommand(input: string): {
   const [cmdPart, ...rawArgs] = trimmed.split(/\s+/)
   const args = rawArgs.filter(Boolean)
 
-  const hasPrefix = /^[\/!\.#~]/.test(cmdPart)
+  const hasPrefix = /^[°•π÷×¶∆£¢€¥®™�✓_=|~!?#/$%^&.+-,\\\©^]/.test(cmdPart)
   const prefix = hasPrefix ? cmdPart[0] : null
   const command = hasPrefix ? cmdPart.slice(1) : cmdPart
 
