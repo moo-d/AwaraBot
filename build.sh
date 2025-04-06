@@ -1,10 +1,8 @@
 #!/bin/bash
 
-# Direktori output
 OUT_DIR="./bin"
 mkdir -p $OUT_DIR
 
-# Build untuk berbagai platform
 PLATFORMS=(
   "windows/amd64:.exe"
   "linux/amd64:-linux-x64"
@@ -20,9 +18,8 @@ for platform in "${PLATFORMS[@]}"; do
 
   echo "Building for $GOOS/$GOARCH..."
   OUTPUT="$OUT_DIR/whatsapp-bot$SUFFIX"
-  GOOS=$GOOS GOARCH=$GOARCH go build -o $OUTPUT main.go
+  GOOS=$GOOS GOARCH=$GOARCH go build -o $OUTPUT ./cmd/bot
   
-  # Set permission untuk Unix-like systems
   if [ "$GOOS" != "windows" ]; then
     chmod +x $OUTPUT
   fi
