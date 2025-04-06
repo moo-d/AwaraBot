@@ -3,39 +3,62 @@ import { Bot } from '../types'
 
 export function createBotClient(botProcess: ChildProcess): Bot {
   const sendCommand = (command: string, errorPrefix = 'Command') => {
-    return new Promise<void>(resolve => {
+    return new Promise<void>((resolve, reject) => {
       botProcess.stdin?.write(command, err => {
-        if (err) console.error(`${errorPrefix} error:`, err)
-        resolve()
+        err ? reject(`${errorPrefix} error: ${err}`) : resolve()
       })
     })
   }
 
   const formatContent = (content: string) => content.replace(/\n/g, '{{NL}}')
+  const createMediaCommand = (
+    type: 'IMAGE'|'VIDEO'|'AUDIO',
+    jid: string,
+    media: string|Buffer,
+    caption = '',
+    isUrl = false
+  ) => {
+    const baseCmd = isUrl || typeof media === 'string' ? `SEND_URL_${type}` : `SEND_${type}`
+    const mediaData = typeof media === 'string' ? media : media.toString('base64')
+    return `${baseCmd}:${jid}|${mediaData}${type !== 'AUDIO' ? `|${formatContent(caption)}` : ''}MESSAGE_END\n`
+  }
+
+  const handleDownloadResponse = (): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      const handler = (data: Buffer) => {
+        const message = data.toString()
+        if (message.includes('DOWNLOAD_RESULT:')) {
+          try {
+            const jsonStr = message.split('DOWNLOAD_RESULT:')[1].split('MESSAGE_END')[0].trim()
+            resolve(JSON.parse(jsonStr))
+          } catch (err) {
+            reject(err)
+          } finally {
+            botProcess.stdout?.off('data', handler)
+          }
+        }
+      }
+      botProcess.stdout?.on('data', handler)
+    })
+  }
 
   return {
-    sendMessage: async (jid, content) => {
-      const message = typeof content === 'string' ? content : ''
-      const command = `SEND:${jid}|${formatContent(message)}MESSAGE_END\n`
-      return sendCommand(command, 'Write')
-    },
-    sendImage: async (jid, image, caption = '', isUrl = false) => {
-      const baseCmd = isUrl || typeof image === "string" ? 'SEND_URL_IMAGE' : 'SEND_IMAGE'
-      const media = typeof image === 'string' ? image : image.toString('base64')
-      const command = `${baseCmd}:${jid}|${media}|${formatContent(caption)}MESSAGE_END\n`
-      return sendCommand(command, 'Image send')
-    },
-    sendVideo: async (jid, video, caption = '', isUrl = false) => {
-      const baseCmd = isUrl || typeof video === "string" ? 'SEND_URL_VIDEO' : 'SEND_VIDEO'
-      const media = typeof video === 'string' ? video : video.toString('base64')
-      const command = `${baseCmd}:${jid}|${media}|${formatContent(caption)}MESSAGE_END\n`
-      return sendCommand(command, 'Video send')
-    },
-    sendAudio: async (jid, audio, isUrl = false) => {
-      const baseCmd = isUrl || typeof audio === "string" ? 'SEND_URL_AUDIO' : 'SEND_AUDIO'
-      const media = typeof audio === 'string' ? audio : audio.toString('base64')
-      const command = `${baseCmd}:${jid}|${media}MESSAGE_END\n`
-      return sendCommand(command, 'Audio send')
+    sendCommand,
+    sendMessage: (jid, content) => 
+      sendCommand(`SEND:${jid}|${formatContent(typeof content === 'string' ? content : '')}MESSAGE_END\n`, 'Write'),
+    
+    sendImage: (jid, image, caption = '', isUrl = false) => 
+      sendCommand(createMediaCommand('IMAGE', jid, image, caption, isUrl), 'Image send'),
+    
+    sendVideo: (jid, video, caption = '', isUrl = false) => 
+      sendCommand(createMediaCommand('VIDEO', jid, video, caption, isUrl), 'Video send'),
+    
+    sendAudio: (jid, audio, isUrl = false) => 
+      sendCommand(createMediaCommand('AUDIO', jid, audio, '', isUrl), 'Audio send'),
+    
+    downloader: async (url, type, format) => {
+      await sendCommand(`DOWNLOAD:${type}|${url}|${format || ''}MESSAGE_END\n`)
+      return handleDownloadResponse()
     }
   }
 }
