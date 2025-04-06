@@ -45,7 +45,7 @@
 
 2. Install dependencies
    ```bash
-   go run tidy
+   go mod tidy
    npm install
    ```
 
@@ -55,7 +55,7 @@
    nano .env  # Edit with your config
    ```
 
-4. Build and run
+4. Run
    ```bash
    npm run prod
    ```
