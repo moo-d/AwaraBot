@@ -69,9 +69,9 @@ class WhatsAppBotLauncher {
     const outputFile = path.join(this.BINARY_DIR, `whatsapp-bot-${platform}-${arch === 'x64' ? 'x64' : 'arm64'}`)
 
     const buildCommands = {
-      win32: `set GOOS=windows&& set GOARCH=amd64&& go build -o ${path.join(this.BINARY_DIR, "whatsapp-bot.exe")} main.go`,
-      linux: `GOOS=linux GOARCH=${arch === 'x64' ? 'amd64' : 'arm64'} go build -o "${outputFile}" main.go`,
-      darwin: `GOOS=darwin GOARCH=${arch === 'arm64' ? 'arm64' : 'amd64'} go build -o "${outputFile}" main.go`
+      win32: `set GOOS=windows&& set GOARCH=amd64&& go build -o ${path.join(this.BINARY_DIR, "whatsapp-bot.exe")} ./cmd/bot`,
+      linux: `GOOS=linux GOARCH=${arch === 'x64' ? 'amd64' : 'arm64'} go build -o "${outputFile}" ./cmd/bot`,
+      darwin: `GOOS=darwin GOARCH=${arch === 'arm64' ? 'arm64' : 'amd64'} go build -o "${outputFile}" ./cmd/bot`
     }
 
     console.log(this.BUILD_DIR)
