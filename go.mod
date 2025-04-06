@@ -5,12 +5,13 @@ go 1.24.1
 require (
 	github.com/joho/godotenv v1.5.1
 	github.com/mattn/go-sqlite3 v1.14.24
-	go.mau.fi/whatsmeow v0.0.0-20250326122532-6680c9a6e9a7
+	go.mau.fi/whatsmeow v0.0.0-20250402091807-b0caa1b76088
 	google.golang.org/protobuf v1.36.6
 )
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
+	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
