@@ -11,9 +11,8 @@
   "version": "1.0.0",
   "main": "dist/index.js",
   "scripts": {
-    "build": "bash build.sh",
     "start": "node dist/index.js",
-    "prod": "npx tsc && npm run start",
+    "prod": "npx tsc && node .",
     "dev": "concurrently \"npm run build:go\" \"tsc --watch\" \"nodemon dist/index.js\""
   },
   "repository": {
@@ -36,6 +35,7 @@
   "description": "",
   "dependencies": {
     "@types/qrcode-terminal": "^0.12.2",
+    "axios": "^1.8.4",
     "fs-extra": "^11.3.0",
     "qrcode-terminal": "^0.12.0"
   }
