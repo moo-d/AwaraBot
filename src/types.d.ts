@@ -1,4 +1,5 @@
 export interface Bot {
+  sendCommand: (command: string, errorPrefix?: string) => Promise<void>
   sendMessage: (jid: string, message: string) => Promise<void>
   sendImage: (
     jid: string, 
@@ -17,6 +18,24 @@ export interface Bot {
     audio: Buffer | string, 
     isUrl?: boolean
   ) => Promise<void>
+  downloader: (
+    url: string, 
+    type: 'tiktok' | 'youtube', 
+    format?: 'mp3' | 'mp4'
+  ) => Promise<{
+    status: boolean
+    type?: string
+    result?: {
+      video?: string
+      music?: string
+      wm?: string
+      url?: string
+      title?: string
+      duration?: number
+      [key: string]: any
+    }
+    error?: string
+  }>
 }
 
 export interface CommandContext {
