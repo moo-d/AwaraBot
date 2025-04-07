@@ -4,7 +4,7 @@ export default {
   name: 'tiktok',
   alias: ['tt', 'tiktokdl'],
   category: 'downloader',
-  description: 'Download TikTok video without watermark',
+  description: 'Download TikTok video or images without watermark',
   async handler(bot, args, context) {
     if (!args.length) {
       return bot.sendMessage(context.chat, 
@@ -20,23 +20,60 @@ export default {
     }
 
     try {
-      await bot.sendMessage(context.chat, '⏳ Downloading TikTok video...')
+      await bot.sendMessage(context.chat, '⏳ Downloading TikTok content...')
       
-      const response = await bot.downloader(url, 'tiktok')
+      const { result, error } = await bot.downloader(url, 'tiktok')
       
-      if (!response?.result?.video) {
-        throw new Error(response?.error || 'No video found in response')
+      if (!result) {
+        throw new Error(error || 'No content found in response')
       }
-  
-      await bot.sendVideo(context.chat, response.result.video, 'TikTok Video', true)
-      
-      if (response.result.music) {
-        await bot.sendAudio(context.chat, response.result.music, true)
+
+      const sender = context.from.split(':')[0] + '@s.whatsapp.net'
+      const isGroup = context.isGroup
+      const sendOperations: Promise<unknown>[] = []
+
+      if (result.images?.length) {
+        const sendPrivate = isGroup && result.images.length > 1
+        
+        if (sendPrivate) {
+          await bot.sendMessage(context.chat, 
+            `📸 Found ${result.images.length} images. Sending to your private chat.`
+          )
+        }
+
+        const targetChat = sendPrivate ? sender : context.chat
+        const musicTarget = sendPrivate ? sender : context.chat
+
+        for (const image of result.images) {
+          sendOperations.push(bot.sendImage(targetChat, image))
+        }
+
+        if (result.music) {
+          sendOperations.push(bot.sendAudio(musicTarget, result.music, !sendPrivate))
+        }
+      } else if (result.video) {
+        sendOperations.push(
+          bot.sendVideo(context.chat, result.video, 'TikTok Video', true)
+        )
+        
+        if (result.music) {
+          sendOperations.push(
+            bot.sendAudio(context.chat, result.music, true)
+          )
+        }
+      } else {
+        throw new Error('No video or images found in response')
       }
-    } catch (error: any) {
+
+      await Promise.all(sendOperations)
+
+    } catch (error) {
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'An unknown error occurred'
       await bot.sendMessage(
         context.chat, 
-        `❌ Failed to download TikTok video: ${error.message}`
+        `❌ Failed to download TikTok content: ${errorMessage}`
       )
     }
   }
