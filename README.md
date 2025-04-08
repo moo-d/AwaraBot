@@ -12,11 +12,11 @@
 ## 🌟 Key Features
 
 ### 🎵 Media Downloader
-| Service  | Format           | Example Command       |
-|----------|------------------|-----------------------|
-| YouTube  | MP3 Audio        | `/yta https://youtu.be/...` |
-| YouTube  | MP4 Video (720p) | `/ytv https://youtu.be/...` |
-| TikTok   | Video (No WM)    | `/tt https://vm.tiktok.com/...` |
+| Service  | Format                 | Example Command                     | Aliases          |
+|----------|------------------------|-------------------------------------|------------------|
+| YouTube  | MP3 Audio              | `/ytmp3 https://youtu.be/...`       | `yta`, `ytaudio` |
+| YouTube  | MP4 Video (720p HD)    | `/ytmp4 https://youtu.be/...`       | `ytv`, `ytvideo` |
+| TikTok   | Video/Images (Auto-detect) | `/tt https://vm.tiktok.com/...` | `tt`, `tiktokdl` |
 
 ### 🛠️ Utility Commands
 ```bash
