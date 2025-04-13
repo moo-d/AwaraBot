@@ -39,7 +39,7 @@ cp .env.example .env
 nano .env  # Edit your configuration
 
 # 4. Start the bot
-npm start
+npm run prod
 ```
 
 ### 🔧 Configuration
