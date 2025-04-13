@@ -8,8 +8,11 @@ import { extractCommand } from './utils/prefix'
 import { commandCache, getCommand } from './commands'
 import { _aliasRegistry, _commandRegistry } from './utils/loader'
 import { createBotClient } from './core/botClient'
+import { BASE_INSTRUCTIONS } from './utils/instructionLoader'
 
 type SupportedPlatform = 'win32' | 'linux' | 'darwin'
+
+const chatHistories: Record<string, { historyChatbot: Array<any> }> = {}
 
 class WhatsAppBotLauncher {
   private static readonly BINARY_DIR = path.join(__dirname, '../bin')
@@ -24,7 +27,6 @@ class WhatsAppBotLauncher {
       const botProcess = this.spawnBot(this.getPlatformBinaryPath())
       this.setupEventHandlers(botProcess)
       
-      const { _commandRegistry } = await import('./utils/loader')
       console.log('Loaded commands:', [..._commandRegistry.keys()])
     } catch (error) {
       console.error('❌ Fatal error:', error)
@@ -37,14 +39,12 @@ class WhatsAppBotLauncher {
     const arch = os.arch()
     
     const binaries = {
-      win32: `whatsapp-bot.exe`,
+      win32: 'whatsapp-bot.exe',
       linux: `whatsapp-bot-linux-${arch === 'x64' ? 'x64' : 'arm64'}`,
       darwin: `whatsapp-bot-macos-${arch === 'arm64' ? 'arm64' : 'x64'}`
     }
 
-    const binaryPath = path.join(this.BINARY_DIR, binaries[platform])
-    console.log("DEBUG BIN", binaryPath)
-    return binaryPath
+    return path.join(this.BINARY_DIR, binaries[platform])
   }
 
   private static ensureBinaryExists() {
@@ -66,7 +66,10 @@ class WhatsAppBotLauncher {
   private static buildBinary() {
     const platform = os.platform() as SupportedPlatform
     const arch = os.arch()
-    const outputFile = path.join(this.BINARY_DIR, `whatsapp-bot-${platform}-${arch === 'x64' ? 'x64' : 'arm64'}`)
+    const outputFile = path.join(
+      this.BINARY_DIR, 
+      `whatsapp-bot-${platform}-${arch === 'x64' ? 'x64' : 'arm64'}`
+    )
 
     const buildCommands = {
       win32: `set GOOS=windows&& set GOARCH=amd64&& go build -o ${path.join(this.BINARY_DIR, "whatsapp-bot.exe")} ./cmd/bot`,
@@ -74,7 +77,6 @@ class WhatsAppBotLauncher {
       darwin: `GOOS=darwin GOARCH=${arch === 'arm64' ? 'arm64' : 'amd64'} go build -o "${outputFile}" ./cmd/bot`
     }
 
-    console.log(this.BUILD_DIR)
     try {
       execSync(buildCommands[platform], {
         cwd: this.BUILD_DIR,
@@ -89,23 +91,20 @@ class WhatsAppBotLauncher {
 
   private static spawnBot(binaryPath: string): ChildProcess {
     if (!fs.existsSync(binaryPath)) {
-      throw new Error(`Binary not found at ${binaryPath}`);
+      throw new Error(`Binary not found at ${binaryPath}`)
     }
     
-    const botProcess = spawn(binaryPath, [], {
+    return spawn(binaryPath, [], {
       cwd: path.dirname(binaryPath),
       stdio: ['pipe', 'pipe', 'inherit'] as StdioOptions,
       windowsHide: true,
       shell: false
     })
-
-    if (os.platform() === 'win32') execSync('chcp 65001', { stdio: 'ignore' })
-    return botProcess
   }
 
   private static setupEventHandlers(botProcess: ChildProcess) {
     let messageBuffer = ''
-    const bot: Bot = createBotClient(botProcess)
+    const bot = createBotClient(botProcess)
 
     const handleOutput = (data: Buffer) => {
       const output = data.toString().trim()
@@ -114,15 +113,18 @@ class WhatsAppBotLauncher {
       try {
         const message = JSON.parse(output)
         switch (message.type) {
-          case "qr":
+          case 'qr':
             qrcode.generate(message.content.code, { small: true })
             console.log(message.content.message)
             break
-          case "message":
+          case 'message':
             this.handleMessage(bot, message.content)
             break
+          case 'chatbot_result':
+            this.handleChatbotResponse(bot, message.content)
+            break
           default:
-            console.log(output)
+            if (output.includes('[BOT INFO]')) console.log(output)
         }
       } catch {
         console.log(output)
@@ -145,20 +147,26 @@ class WhatsAppBotLauncher {
       })
     })
 
-    botProcess.stderr?.on('data', data => console.error(`[BOT ERROR] ${data.toString().trim()}`))
+    botProcess.stderr?.on('data', data => 
+      console.error(`[BOT ERROR] ${data.toString().trim()}`)
+    )
+    
     botProcess.on('error', err => {
       console.error('🔥 Process error:', err)
       process.exit(1)
     })
+    
     botProcess.on('exit', code => {
       console.log(`🛑 Process exited with code ${code}`)
       process.exit(code || 0)
     })
+    
     process.on('SIGINT', () => {
       console.log('\nShutting down...')
       botProcess.kill()
       process.exit()
     })
+    
     process.on('exit', () => {
       commandCache.clear()
       _commandRegistry.clear()
@@ -166,29 +174,115 @@ class WhatsAppBotLauncher {
     })
   }
 
+  private static async handleChatbotResponse(bot: Bot, content: any) {
+    try {
+      console.log('[CHATBOT] Received response:', content)
+
+      let parsedResponse: any
+      let isJsonResponse = false
+      
+      try {
+        parsedResponse = JSON.parse(content.message)
+        isJsonResponse = true
+      } catch (e) {
+        parsedResponse = content.message
+      }
+
+      if (isJsonResponse && parsedResponse.cmd) {
+        const command = parsedResponse.cmd.replace(/^\//, '')
+        const caption = parsedResponse.caption || ''
+        const query = parsedResponse.query || ''
+
+        if (caption) {
+          await bot.sendMessage(content.chat, caption)
+        }
+
+        const cmd = await getCommand(command)
+        if (cmd) {
+          const context: CommandContext = {
+            chat: content.chat,
+            from: content.from || content.chat,
+            sender: content.sender,
+            text: parsedResponse.cmd,
+            isGroup: content.chat.endsWith('@g.us'),
+            messageId: content.messageId || '',
+            pushName: content.pushName || ''
+          }
+          
+          await cmd.handler(bot, query ? [query] : [], context)
+        }
+      } else if (isJsonResponse && parsedResponse.caption) {
+        this.updateChatHistory(content.sender, 'assistant', parsedResponse.caption)
+        await bot.sendMessage(content.chat, parsedResponse.caption)
+      } else {
+        this.updateChatHistory(content.from, 'assistant', content.message)
+        await bot.sendMessage(content.chat, content.message)
+      }
+    } catch (error) {
+      console.error('[CHATBOT] Error handling response:', error)
+      await bot.sendMessage(content.chat, '⚠️ Maaf, terjadi kesalahan saat memproses pesanmu')
+    }
+  }
+
+  private static updateChatHistory(sender: string, role: string, content: string) {
+    if (!chatHistories[sender]) {
+      chatHistories[sender] = { historyChatbot: [] }
+    }
+    chatHistories[sender].historyChatbot.push({ role, content })
+  }
+
   private static async handleMessage(bot: Bot, content: any) {
     const { command: cmdName, args } = extractCommand(content.text)
+    const { chat, from, text, pushName, isGroup, messageId } = content
+    const sender = from.split(':')[0] + '@s.whatsapp.net'
+
+    const context: CommandContext = {
+      chat,
+      from,
+      sender,
+      text,
+      pushName,
+      isGroup,
+      messageId,
+      isImage: content.isImage,
+      isQuotedImage: content.isQuotedImage,
+      quotedMessage: content.quotedMessage ? {
+        messageId: content.quotedMessage.messageId || '',
+        from: content.quotedMessage.from || '',
+        isImage: content.quotedMessage.isImage || false
+      } : undefined
+    }
+
+    if (!chatHistories[sender]) {
+      chatHistories[sender] = { historyChatbot: [] }
+    }
+
     if (!cmdName) return
   
     try {
       const cmd = await getCommand(cmdName)
-      if (!cmd) return
-      
-      const context: CommandContext = {
-        chat: content.chat,
-        from: content.from,
-        pushName: content.pushName,
-        isGroup: content.isGroup
+
+      if (!cmd && !isGroup) {
+        this.updateChatHistory(sender, 'user', text)
+        return await bot.ai(chat, text, [
+          ...BASE_INSTRUCTIONS, 
+          ...chatHistories[sender].historyChatbot
+        ], 'GPT-4')
       }
+      if (!cmd) return
 
       const startTime = Date.now()
       try {
-        console.log(`[MSG] From: ${context.from} - Content: ${content.text}`)
+        console.log(`[MSG] From: ${from} - Content: ${text}`)
+        if (cmd.wait) {
+          await bot.sendReaction(chat, sender, messageId, '⏳')
+        }
         await cmd.handler(bot, args, context)
         const duration = Date.now() - startTime
         if (duration > 1000) {
           console.log(`[PERF] Slow command ${cmdName}: ${duration}ms`)
         }
+        if (cmd.wait) await bot.sendReaction(chat, sender, messageId, '✅')
       } catch (err) {
         console.error(`[ERROR] Command ${cmdName} failed after ${Date.now() - startTime}ms`, err)
         throw err

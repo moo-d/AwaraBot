@@ -4,6 +4,7 @@ export default {
   name: 'tiktok',
   alias: ['tt', 'tiktokdl'],
   category: 'downloader',
+  wait: true,
   description: 'Download TikTok video or images without watermark',
   async handler(bot, args, context) {
     if (!args.length) {
@@ -20,8 +21,6 @@ export default {
     }
 
     try {
-      await bot.sendMessage(context.chat, '⏳ Downloading TikTok content...')
-      
       const { result, error } = await bot.downloader(url, 'tiktok')
       
       if (!result) {

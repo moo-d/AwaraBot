@@ -5,6 +5,7 @@ export default {
   alias: ['ytaudio', 'yta'],
   category: 'downloader',
   description: 'Download YouTube audio (MP3)',
+  wait: true,
   async handler(bot, args, context) {
     if (!args.length) {
       return bot.sendMessage(context.chat,
@@ -21,8 +22,6 @@ export default {
     }
 
     try {
-      await bot.sendMessage(context.chat, '⏳ Downloading YouTube audio...')
-      
       const result = await bot.downloader(url, 'youtube', 'mp3')
       console.log('YouTube MP3 Result:', result)
 

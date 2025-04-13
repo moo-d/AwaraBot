@@ -14,8 +14,9 @@ func main() {
 	waLog.Stdout("NETWORK", "DEBUG", true)
 	waLog.Stdout("DATABASE", "INFO", true)
 
-	if err := godotenv.Load(); err != nil {
-		log.Printf("Env load warning: %v", err)
+	err := godotenv.Load("../.env")
+	if err != nil {
+		log.Fatalln("cannot load .env files")
 	}
 
 	container, err := sqlstore.New("sqlite3", "file:bot.db?_foreign_keys=on&_journal_mode=WAL&_timeout=5000", nil)

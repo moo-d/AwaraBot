@@ -1,6 +1,7 @@
 package bot
 
 import (
+	waProto "go.mau.fi/whatsmeow/binary/proto"
 	"go.mau.fi/whatsmeow/types/events"
 )
 
@@ -29,14 +30,42 @@ func (b *Bot) handleMessage(msg *events.Message) {
 		text = ext.GetText()
 	}
 
+	isImage := msg.Message.GetImageMessage() != nil
+	var quotedMsg *waProto.Message
+	var isQuotedImage bool
+	var quotedMsgID string
+	var quotedParticipant string
+
+	if extMsg := msg.Message.GetExtendedTextMessage(); extMsg != nil {
+		if ctxInfo := extMsg.GetContextInfo(); ctxInfo != nil {
+			quotedMsg = ctxInfo.GetQuotedMessage()
+			quotedMsgID = ctxInfo.GetStanzaId()
+			quotedParticipant = ctxInfo.GetParticipant()
+			isQuotedImage = quotedMsg.GetImageMessage() != nil
+		}
+	}
+
+	eventContent := map[string]interface{}{
+		"from":          msg.Info.Sender.String(),
+		"chat":          msg.Info.Chat.String(),
+		"text":          text,
+		"pushName":      msg.Info.PushName,
+		"isGroup":       msg.Info.IsGroup,
+		"messageId":     msg.Info.ID,
+		"isImage":       isImage,
+		"isQuotedImage": isQuotedImage,
+	}
+
+	if isQuotedImage {
+		eventContent["quotedMessage"] = map[string]interface{}{
+			"messageId": quotedMsgID,
+			"from":      quotedParticipant,
+			"isImage":   true,
+		}
+	}
+
 	b.sendEvent(BotEvent{
-		Type: "message",
-		Content: map[string]interface{}{
-			"from":     msg.Info.Sender.String(),
-			"chat":     msg.Info.Chat.String(),
-			"text":     text,
-			"pushName": msg.Info.PushName,
-			"isGroup":  msg.Info.IsGroup,
-		},
+		Type:    "message",
+		Content: eventContent,
 	})
 }

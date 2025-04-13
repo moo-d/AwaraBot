@@ -18,31 +18,73 @@ export interface Bot {
     audio: Buffer | string, 
     isUrl?: boolean
   ) => Promise<void>
+  sendReaction: (
+    jid: string,
+    sender: string,
+    messageId: string,
+    emoji: string
+  ) => Promise<void>
+  ai: (
+    jid: string,
+    prompt: string,
+    messages?: Array<{
+      role: string
+      content: string
+    }>,
+    model?: string
+  ) => Promise<AIResponse>
   downloader: (
     url: string, 
     type: 'tiktok' | 'youtube', 
     format?: 'mp3' | 'mp4'
-  ) => Promise<{
-    status: boolean
-    type?: string
-    result?: {
-      video?: string
-      music?: string
-      wm?: string
-      url?: string
-      title?: string
-      duration?: number
-      [key: string]: any
-    }
-    error?: string
-  }>
+  ) => Promise<DownloadResult>
+}
+
+export interface DownloadResult {
+  status: boolean
+  type?: string
+  result?: {
+    video?: string
+    images?: string[]
+    music?: string
+    wm?: string
+    url?: string
+    title?: string
+    duration?: number
+    [key: string]: any
+  }
+  error?: string
+}
+
+export interface AIResponse {
+  chat: string
+  message: string
+  command?: string
+  query?: string
+  caption?: string
+  isGroup?: boolean
+  messageId?: string
 }
 
 export interface CommandContext {
   chat: string
   from: string
+  sender: string
+  text: string
   pushName?: string
   isGroup?: boolean
+  messageId: string
+  isImage?: boolean
+  isQuotedImage?: boolean
+  quotedMessage?: QuotedMessage
+}
+
+export interface QuotedMessage {
+  messageId: string
+  from: string
+  isImage?: boolean
+  isVideo?: boolean
+  isDocument?: boolean
 }
 
 export interface CommandResponse {
@@ -64,6 +106,7 @@ export interface Command {
   alias?: string[]
   category: string
   description?: string
+  wait?: boolean
   handler: (
     bot: Bot,
     args: string[],
@@ -74,4 +117,5 @@ export interface Command {
 
 export interface CommandWithMeta extends Command {
   meta: CommandMeta
+  wait?: boolean
 }

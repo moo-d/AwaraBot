@@ -19,6 +19,8 @@ type Bot struct {
 	retryCount     int
 	TikTokScraper  *scraper.TikTokScraper
 	YouTubeScraper *scraper.YouTubeScraper
+	GPTScraper     *scraper.GPTScraper
+	VyroScraper    *scraper.VyroScraper
 }
 
 type BotEvent struct {
@@ -48,9 +50,12 @@ func (b *Bot) initClient(device *store.Device) {
 	device.PushName = os.Getenv("BOT_NAME")
 	b.Client.AddEventHandler(b.eventHandler)
 	b.YouTubeScraper = scraper.NewYouTubeScraper()
+	b.GPTScraper = scraper.NewGPTScraper()
+	b.VyroScraper = scraper.NewVyroScraper()
 }
 
 func (b *Bot) sendEvent(event BotEvent) {
+	fmt.Println(event)
 	data, err := json.Marshal(event)
 	if err != nil {
 		b.Log.Errorf("Marshal error: %v", err)

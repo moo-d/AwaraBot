@@ -19,6 +19,7 @@ for platform in "${PLATFORMS[@]}"; do
   echo "Building for $GOOS/$GOARCH..."
   OUTPUT="$OUT_DIR/whatsapp-bot$SUFFIX"
   GOOS=$GOOS GOARCH=$GOARCH go build -o $OUTPUT ./cmd/bot
+  echo $GOARCH
   
   if [ "$GOOS" != "windows" ]; then
     chmod +x $OUTPUT
