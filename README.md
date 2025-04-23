@@ -60,5 +60,13 @@ BOT_NAME=Awara
 
 ---
 
+## 👀 Feature Details 
+   ##### AI Chat & AI Assistant 
+  <img src="https://i.supa.codes/9oF4-e" width="150" alt="Ai Chat">
+  
+  <img src="https://i.supa.codes/Ae0Y9c" width="150" alt="Ai Assistant">
+  
+  ---
+  
 ## 📢 Join For More Information
 <a href="https://chat.whatsapp.com/L1xOwYMceo64Ff8958Q1rT"> <img src="https://img.shields.io/badge/Join_Group-25D366?style=for-the-badge&logo=whatsapp&logoColor=white" alt="WhatsApp Group"> </a> </div>
