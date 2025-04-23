@@ -61,7 +61,7 @@ BOT_NAME=Awara
 ---
 
 ## 👀 Feature Details 
-##### AI Chat & AI Assistant 
+##### AI Chat Bot & AI Assistant 
 
 <div style="display: flex;">
   <img src="https://i.supa.codes/9oF4-e" width="150" alt="Ai Chat">
